@@ -56,6 +56,7 @@ struct CLIDebuggerSystem {
 
 	void (*disassemble)(struct CLIDebuggerSystem*, struct CLIDebugVector* dv);
 	void (*printStatus)(struct CLIDebuggerSystem*);
+    FILE *output_file;
 
 	struct CLIDebuggerCommandSummary* commands;
 	struct CLIDebuggerCommandAlias* commandAliases;

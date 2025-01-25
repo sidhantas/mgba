@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.3)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/src/platform/cmake/")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(POLICY CMP0025)
 	cmake_policy(SET CMP0025 NEW)

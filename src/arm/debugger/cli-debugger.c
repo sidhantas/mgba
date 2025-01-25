@@ -3,6 +3,7 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+#include <stdio.h>
 #include <mgba/internal/arm/debugger/cli-debugger.h>
 
 #include <mgba/core/core.h>
@@ -132,6 +133,11 @@ static void _printStatus(struct CLIDebuggerSystem* debugger) {
 	struct CLIDebuggerBackend* be = debugger->p->backend;
 	struct ARMCore* cpu = debugger->p->d.p->core->cpu;
 	int r;
+	//for (r = 0; r < 16; r += 1) {
+	//	fprintf(debugger->output_file, "%08x ", cpu->gprs[r]);
+	//}
+	//fprintf(debugger->output_file, "%08x ", cpu->cpsr.packed);
+	fprintf(debugger->output_file, "%"PRIu64"\n", mTimingGlobalTime(debugger->p->d.p->core->timing));
 	for (r = 0; r < 16; r += 4) {
 		be->printf(be, "%sr%i: %08X  %sr%i: %08X  %sr%i: %08X  %sr%i: %08X\n",
 		    r < 10 ? " " : "", r, cpu->gprs[r],
@@ -179,6 +185,7 @@ static void _setBreakpointThumb(struct CLIDebugger* debugger, struct CLIDebugVec
 }
 
 void ARMCLIDebuggerCreate(struct CLIDebuggerSystem* debugger) {
+    debugger->output_file = fopen("output_file.txt", "w");
 	debugger->printStatus = _printStatus;
 	debugger->disassemble = _disassemble;
 	debugger->platformName = "ARM";

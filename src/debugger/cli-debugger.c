@@ -101,7 +101,7 @@ static struct CLIDebuggerCommandSummary _debuggerCommands[] = {
 #ifdef ENABLE_VFS
 	{ "load-symbols", _loadSymbols, "S", "Load symbols from an external file" },
 #endif
-	{ "next", _next, "", "Execute next instruction" },
+	{ "next", _next, "II", "Execute next instruction" },
 	{ "print", _print, "S+", "Print a value" },
 	{ "print/t", _printBin, "S+", "Print a value as binary" },
 	{ "print/x", _printHex, "S+", "Print a value as hexadecimal" },
@@ -139,37 +139,35 @@ static struct CLIDebuggerCommandSummary _debuggerCommands[] = {
 	{ 0, 0, 0, 0 }
 };
 
-static struct CLIDebuggerCommandAlias _debuggerCommandAliases[] = {
-	{ "b", "break" },
-	{ "bt", "backtrace" },
-	{ "c", "continue" },
-	{ "d", "delete" },
-	{ "dis", "disassemble" },
-	{ "disasm", "disassemble" },
-	{ "fin", "finish" },
-	{ "h", "help" },
-	{ "i", "status" },
-	{ "info", "status" },
-	{ "loadsyms", "load-symbols" },
-	{ "lb", "listb" },
-	{ "lw", "listw" },
-	{ "n", "next" },
-	{ "p", "print" },
-	{ "p/t", "print/t" },
-	{ "p/x", "print/x" },
-	{ "q", "quit" },
-	{ "w", "watch" },
-	{ "watchr", "watch-range" },
-	{ "wr", "watch-range" },
-	{ "watchr/c", "watch-range/c" },
-	{ "wr/c", "watch-range/c" },
-	{ "watchr/r", "watch-range/r" },
-	{ "wr/r", "watch-range/r" },
-	{ "watchr/w", "watch-range/w" },
-	{ "wr/w", "watch-range/w" },
-	{ ".", "source" },
-	{ 0, 0 }
-};
+static struct CLIDebuggerCommandAlias _debuggerCommandAliases[] = { { "b", "break" },
+	                                                                { "bt", "backtrace" },
+	                                                                { "c", "continue" },
+	                                                                { "d", "delete" },
+	                                                                { "dis", "disassemble" },
+	                                                                { "disasm", "disassemble" },
+	                                                                { "fin", "finish" },
+	                                                                { "h", "help" },
+	                                                                { "i", "status" },
+	                                                                { "info", "status" },
+	                                                                { "loadsyms", "load-symbols" },
+	                                                                { "lb", "listb" },
+	                                                                { "lw", "listw" },
+	                                                                { "n", "next" },
+	                                                                { "p", "print" },
+	                                                                { "p/t", "print/t" },
+	                                                                { "p/x", "print/x" },
+	                                                                { "q", "quit" },
+	                                                                { "w", "watch" },
+	                                                                { "watchr", "watch-range" },
+	                                                                { "wr", "watch-range" },
+	                                                                { "watchr/c", "watch-range/c" },
+	                                                                { "wr/c", "watch-range/c" },
+	                                                                { "watchr/r", "watch-range/r" },
+	                                                                { "wr/r", "watch-range/r" },
+	                                                                { "watchr/w", "watch-range/w" },
+	                                                                { "wr/w", "watch-range/w" },
+	                                                                { ".", "source" },
+	                                                                { 0, 0 } };
 
 #if !defined(NDEBUG) && !defined(_WIN32)
 static void _handleDeath(int sig) {
@@ -214,20 +212,27 @@ static void _continue(struct CLIDebugger* debugger, struct CLIDebugVector* dv) {
 }
 
 static void _next(struct CLIDebugger* debugger, struct CLIDebugVector* dv) {
-	UNUSED(dv);
-	struct mDebuggerPlatform* platform = debugger->d.p->platform;
-	debugger->d.p->core->step(debugger->d.p->core);
-	if (platform->getStackTraceMode && platform->getStackTraceMode(platform) != STACK_TRACE_DISABLED) {
-		platform->updateStackTrace(platform);
+	if (!dv || dv->type != CLIDV_INT_TYPE) {
+		debugger->backend->printf(debugger->backend, "%s\n", ERROR_MISSING_ARGS);
+		return;
 	}
-	_printStatus(debugger, 0);
+	uint32_t amount = dv->intValue;
+	struct mDebuggerPlatform* platform = debugger->d.p->platform;
+	for (uint32_t i = 0; i < amount; i++) {
+		debugger->d.p->core->step(debugger->d.p->core);
+		if (platform->getStackTraceMode && platform->getStackTraceMode(platform) != STACK_TRACE_DISABLED) {
+			platform->updateStackTrace(platform);
+		}
+		_printStatus(debugger, 0);
+	}
 }
 
 static void _disassemble(struct CLIDebugger* debugger, struct CLIDebugVector* dv) {
 	debugger->system->disassemble(debugger->system, dv);
 }
 
-static bool _parseExpression(struct mDebuggerModule* debugger, struct CLIDebugVector* dv, int32_t* intValue, int* segmentValue) {
+static bool _parseExpression(struct mDebuggerModule* debugger, struct CLIDebugVector* dv, int32_t* intValue,
+                             int* segmentValue) {
 	size_t args = 0;
 	struct CLIDebugVector* accum;
 	for (accum = dv; accum; accum = accum->next) {
@@ -293,7 +298,8 @@ static void _printHex(struct CLIDebugger* debugger, struct CLIDebugVector* dv) {
 	debugger->backend->printf(debugger->backend, " 0x%08X\n", intValue);
 }
 
-static void _printCommands(struct CLIDebugger* debugger, struct CLIDebuggerCommandSummary* commands, struct CLIDebuggerCommandAlias* aliases) {
+static void _printCommands(struct CLIDebugger* debugger, struct CLIDebuggerCommandSummary* commands,
+                           struct CLIDebuggerCommandAlias* aliases) {
 	int i;
 	for (i = 0; commands[i].name; ++i) {
 		debugger->backend->printf(debugger->backend, "%-15s  %s\n", commands[i].name, commands[i].summary);
@@ -316,7 +322,8 @@ static void _printCommands(struct CLIDebugger* debugger, struct CLIDebuggerComma
 	}
 }
 
-static void _printCommandSummary(struct CLIDebugger* debugger, const char* name, struct CLIDebuggerCommandSummary* commands, struct CLIDebuggerCommandAlias* aliases) {
+static void _printCommandSummary(struct CLIDebugger* debugger, const char* name,
+                                 struct CLIDebuggerCommandSummary* commands, struct CLIDebuggerCommandAlias* aliases) {
 	int i;
 	for (i = 0; commands[i].name; ++i) {
 		if (strcmp(commands[i].name, name) == 0) {
@@ -361,10 +368,12 @@ static void _printHelp(struct CLIDebugger* debugger, struct CLIDebugVector* dv) 
 		_printCommandSummary(debugger, dv->charValue, _debuggerCommands, _debuggerCommandAliases);
 		if (debugger->system) {
 			if (debugger->system->platformCommands) {
-				_printCommandSummary(debugger, dv->charValue, debugger->system->platformCommands, debugger->system->platformCommandAliases);
+				_printCommandSummary(debugger, dv->charValue, debugger->system->platformCommands,
+				                     debugger->system->platformCommandAliases);
 			}
 			if (debugger->system->commands) {
-				_printCommandSummary(debugger, dv->charValue, debugger->system->commands, debugger->system->commandAliases);
+				_printCommandSummary(debugger, dv->charValue, debugger->system->commands,
+				                     debugger->system->commandAliases);
 			}
 		}
 	}
@@ -639,11 +648,9 @@ static void _setBreakpoint(struct CLIDebugger* debugger, struct CLIDebugVector* 
 		debugger->backend->printf(debugger->backend, "%s\n", ERROR_MISSING_ARGS);
 		return;
 	}
-	struct mBreakpoint breakpoint = {
-		.address = dv->intValue,
-		.segment = dv->segmentValue,
-		.type = BREAKPOINT_HARDWARE
-	};
+	struct mBreakpoint breakpoint = { .address = dv->intValue,
+		                              .segment = dv->segmentValue,
+		                              .type = BREAKPOINT_HARDWARE };
 	if (dv->next && dv->next->type == CLIDV_CHAR_TYPE) {
 		struct ParseTree* tree = _parseTree((const char*[]) { dv->next->charValue, NULL });
 		if (tree) {
@@ -669,10 +676,7 @@ static void _setWatchpoint(struct CLIDebugger* debugger, struct CLIDebugVector* 
 		return;
 	}
 	struct mWatchpoint watchpoint = {
-		.segment = dv->segmentValue,
-		.minAddress = dv->intValue,
-		.maxAddress = dv->intValue + 1,
-		.type = type
+		.segment = dv->segmentValue, .minAddress = dv->intValue, .maxAddress = dv->intValue + 1, .type = type
 	};
 	if (dv->next && dv->next->type == CLIDV_CHAR_TYPE) {
 		struct ParseTree* tree = _parseTree((const char*[]) { dv->next->charValue, NULL });
@@ -703,7 +707,9 @@ static void _setRangeWatchpoint(struct CLIDebugger* debugger, struct CLIDebugVec
 		return;
 	}
 	if (dv->intValue >= dv->next->intValue) {
-		debugger->backend->printf(debugger->backend, "Range watchpoint end is before start. Note that the end of the range is not included.\n");
+		debugger->backend->printf(
+		    debugger->backend,
+		    "Range watchpoint end is before start. Note that the end of the range is not included.\n");
 		return;
 	}
 	if (dv->segmentValue != dv->next->segmentValue) {
@@ -711,10 +717,7 @@ static void _setRangeWatchpoint(struct CLIDebugger* debugger, struct CLIDebugVec
 		return;
 	}
 	struct mWatchpoint watchpoint = {
-		.segment = dv->segmentValue,
-		.minAddress = dv->intValue,
-		.maxAddress = dv->next->intValue,
-		.type = type
+		.segment = dv->segmentValue, .minAddress = dv->intValue, .maxAddress = dv->next->intValue, .type = type
 	};
 	if (dv->next->next && dv->next->next->type == CLIDV_CHAR_TYPE) {
 		struct ParseTree* tree = _parseTree((const char*[]) { dv->next->next->charValue, NULL });
@@ -781,7 +784,8 @@ static void _listBreakpoints(struct CLIDebugger* debugger, struct CLIDebugVector
 	for (i = 0; i < mBreakpointListSize(&breakpoints); ++i) {
 		struct mBreakpoint* breakpoint = mBreakpointListGetPointer(&breakpoints, i);
 		if (breakpoint->segment >= 0) {
-			debugger->backend->printf(debugger->backend, "%" PRIz "i: %02X:%X\n", breakpoint->id, breakpoint->segment, breakpoint->address);
+			debugger->backend->printf(debugger->backend, "%" PRIz "i: %02X:%X\n", breakpoint->id, breakpoint->segment,
+			                          breakpoint->address);
 		} else {
 			debugger->backend->printf(debugger->backend, "%" PRIz "i: 0x%X\n", breakpoint->id, breakpoint->address);
 		}
@@ -799,15 +803,19 @@ static void _listWatchpoints(struct CLIDebugger* debugger, struct CLIDebugVector
 		struct mWatchpoint* watchpoint = mWatchpointListGetPointer(&watchpoints, i);
 		if (watchpoint->segment >= 0) {
 			if (watchpoint->maxAddress == watchpoint->minAddress + 1) {
-				debugger->backend->printf(debugger->backend, "%" PRIz "i: %02X:%X\n", watchpoint->id, watchpoint->segment, watchpoint->minAddress);
+				debugger->backend->printf(debugger->backend, "%" PRIz "i: %02X:%X\n", watchpoint->id,
+				                          watchpoint->segment, watchpoint->minAddress);
 			} else {
-				debugger->backend->printf(debugger->backend, "%" PRIz "i: %02X:%X-%X\n", watchpoint->id, watchpoint->segment, watchpoint->minAddress, watchpoint->maxAddress);
+				debugger->backend->printf(debugger->backend, "%" PRIz "i: %02X:%X-%X\n", watchpoint->id,
+				                          watchpoint->segment, watchpoint->minAddress, watchpoint->maxAddress);
 			}
 		} else {
 			if (watchpoint->maxAddress == watchpoint->minAddress + 1) {
-				debugger->backend->printf(debugger->backend, "%" PRIz "i: 0x%X\n", watchpoint->id, watchpoint->minAddress);
+				debugger->backend->printf(debugger->backend, "%" PRIz "i: 0x%X\n", watchpoint->id,
+				                          watchpoint->minAddress);
 			} else {
-				debugger->backend->printf(debugger->backend, "%" PRIz "i: 0x%X-0x%X\n", watchpoint->id, watchpoint->minAddress, watchpoint->maxAddress);
+				debugger->backend->printf(debugger->backend, "%" PRIz "i: 0x%X-0x%X\n", watchpoint->id,
+				                          watchpoint->minAddress, watchpoint->maxAddress);
 			}
 		}
 	}
@@ -972,7 +980,9 @@ static struct CLIDebugVector* _parseArg(struct CLIDebugger* debugger, const char
 	return dv;
 }
 
-static int _tryCommands(struct CLIDebugger* debugger, struct CLIDebuggerCommandSummary* commands, struct CLIDebuggerCommandAlias* aliases, const char* command, size_t commandLen, const char* args, size_t argsLen) {
+static int _tryCommands(struct CLIDebugger* debugger, struct CLIDebuggerCommandSummary* commands,
+                        struct CLIDebuggerCommandAlias* aliases, const char* command, size_t commandLen,
+                        const char* args, size_t argsLen) {
 	struct CLIDebugVector* dv = NULL;
 	struct CLIDebugVector* dvLast = NULL;
 	int i;
@@ -1085,13 +1095,17 @@ bool CLIDebuggerRunCommand(struct CLIDebugger* debugger, const char* line, size_
 	if (firstSpace) {
 		args = firstSpace + 1;
 	}
-	int result = _tryCommands(debugger, _debuggerCommands, _debuggerCommandAliases, line, cmdLength, args, count - cmdLength - 1);
+	int result = _tryCommands(debugger, _debuggerCommands, _debuggerCommandAliases, line, cmdLength, args,
+	                          count - cmdLength - 1);
 	if (result < 0 && debugger->system) {
 		if (debugger->system->commands) {
-			result = _tryCommands(debugger, debugger->system->commands, debugger->system->commandAliases, line, cmdLength, args, count - cmdLength - 1);
+			result = _tryCommands(debugger, debugger->system->commands, debugger->system->commandAliases, line,
+			                      cmdLength, args, count - cmdLength - 1);
 		}
 		if (result < 0 && debugger->system->platformCommands) {
-			result = _tryCommands(debugger, debugger->system->platformCommands, debugger->system->platformCommandAliases, line, cmdLength, args, count - cmdLength - 1);
+			result =
+			    _tryCommands(debugger, debugger->system->platformCommands, debugger->system->platformCommandAliases,
+			                 line, cmdLength, args, count - cmdLength - 1);
 		}
 	}
 	if (result < 0) {
@@ -1140,7 +1154,8 @@ static void _commandLine(struct mDebuggerModule* debugger, int32_t timeoutMs) {
 	}
 }
 
-static void _reportEntry(struct mDebuggerModule* debugger, enum mDebuggerEntryReason reason, struct mDebuggerEntryInfo* info) {
+static void _reportEntry(struct mDebuggerModule* debugger, enum mDebuggerEntryReason reason,
+                         struct mDebuggerEntryInfo* info) {
 	struct CLIDebugger* cliDebugger = (struct CLIDebugger*) debugger;
 	if (cliDebugger->traceRemaining > 0) {
 		cliDebugger->traceRemaining = 0;
@@ -1153,7 +1168,8 @@ static void _reportEntry(struct mDebuggerModule* debugger, enum mDebuggerEntryRe
 	case DEBUGGER_ENTER_BREAKPOINT:
 		if (info) {
 			if (info->pointId > 0) {
-				cliDebugger->backend->printf(cliDebugger->backend, "Hit breakpoint %" PRIz "i at 0x%08X\n", info->pointId, info->address);
+				cliDebugger->backend->printf(cliDebugger->backend, "Hit breakpoint %" PRIz "i at 0x%08X\n",
+				                             info->pointId, info->address);
 			} else {
 				cliDebugger->backend->printf(cliDebugger->backend, "Hit unknown breakpoint at 0x%08X\n", info->address);
 			}
@@ -1164,9 +1180,14 @@ static void _reportEntry(struct mDebuggerModule* debugger, enum mDebuggerEntryRe
 	case DEBUGGER_ENTER_WATCHPOINT:
 		if (info) {
 			if (info->type.wp.accessType & WATCHPOINT_WRITE) {
-				cliDebugger->backend->printf(cliDebugger->backend, "Hit watchpoint %" PRIz "i at 0x%08X: (new value = 0x%08X, old value = 0x%08X)\n", info->pointId, info->address, info->type.wp.newValue, info->type.wp.oldValue);
+				cliDebugger->backend->printf(
+				    cliDebugger->backend,
+				    "Hit watchpoint %" PRIz "i at 0x%08X: (new value = 0x%08X, old value = 0x%08X)\n", info->pointId,
+				    info->address, info->type.wp.newValue, info->type.wp.oldValue);
 			} else {
-				cliDebugger->backend->printf(cliDebugger->backend, "Hit watchpoint %" PRIz "i at 0x%08X: (value = 0x%08X)\n", info->pointId, info->address, info->type.wp.oldValue);
+				cliDebugger->backend->printf(cliDebugger->backend,
+				                             "Hit watchpoint %" PRIz "i at 0x%08X: (value = 0x%08X)\n", info->pointId,
+				                             info->address, info->type.wp.oldValue);
 			}
 		} else {
 			cliDebugger->backend->printf(cliDebugger->backend, "Hit watchpoint\n");
@@ -1174,7 +1195,8 @@ static void _reportEntry(struct mDebuggerModule* debugger, enum mDebuggerEntryRe
 		break;
 	case DEBUGGER_ENTER_ILLEGAL_OP:
 		if (info) {
-			cliDebugger->backend->printf(cliDebugger->backend, "Hit illegal opcode at 0x%08X: 0x%08X\n", info->address, info->type.bp.opcode);
+			cliDebugger->backend->printf(cliDebugger->backend, "Hit illegal opcode at 0x%08X: 0x%08X\n", info->address,
+			                             info->type.bp.opcode);
 		} else {
 			cliDebugger->backend->printf(cliDebugger->backend, "Hit illegal opcode\n");
 		}
@@ -1187,7 +1209,8 @@ static void _reportEntry(struct mDebuggerModule* debugger, enum mDebuggerEntryRe
 				if (frame->interrupt) {
 					cliDebugger->backend->printf(cliDebugger->backend, "Hit interrupt at at 0x%08X\n", info->address);
 				} else {
-					cliDebugger->backend->printf(cliDebugger->backend, "Hit function call at at 0x%08X\n", info->address);
+					cliDebugger->backend->printf(cliDebugger->backend, "Hit function call at at 0x%08X\n",
+					                             info->address);
 				}
 			} else {
 				cliDebugger->backend->printf(cliDebugger->backend, "Hit function return at at 0x%08X\n", info->address);
@@ -1309,7 +1332,8 @@ bool CLIDebuggerTabComplete(struct CLIDebugger* debugger, const char* token, boo
 	if (!name) {
 		return false;
 	}
-	if (_debuggerCommands[cmd + 1].name && strlen(_debuggerCommands[cmd + 1].name) >= len && name[len - 1] == _debuggerCommands[cmd + 1].name[len - 1]) {
+	if (_debuggerCommands[cmd + 1].name && strlen(_debuggerCommands[cmd + 1].name) >= len &&
+	    name[len - 1] == _debuggerCommands[cmd + 1].name[len - 1]) {
 		--len;
 		const char* next = 0;
 		int i;
