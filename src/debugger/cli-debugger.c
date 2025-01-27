@@ -381,6 +381,17 @@ static void _printHelp(struct CLIDebugger* debugger, struct CLIDebugVector* dv) 
 
 static void _quit(struct CLIDebugger* debugger, struct CLIDebugVector* dv) {
 	UNUSED(dv);
+	struct CLIDebuggerSystem* sys = debugger->system;
+	struct StatusHistory* status_history = sys->status_history;
+	for (uint32_t i = 1; i < status_history->length; i++) {
+		struct Status status = status_history->history[(status_history->head + i) % HISTORY_SIZE];
+		fprintf(sys->output_file, "%" PRIi64" ", status.instruction_count);
+		for (int r = 0; r < 16; r++) {
+			fprintf(sys->output_file, "%08x ", status.registers[r]);
+		}
+		fprintf(sys->output_file, "%08x ", status.cpsr);
+		fprintf(sys->output_file, "%" PRIi64 "\n", status.cycles);
+	}
 	mDebuggerShutdown(debugger->d.p);
 }
 

@@ -3,8 +3,8 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-#include <stdio.h>
 #include <mgba/internal/arm/debugger/cli-debugger.h>
+#include <stdio.h>
 
 #include <mgba/core/core.h>
 #include <mgba/core/timing.h>
@@ -31,25 +31,17 @@ static struct CLIDebuggerCommandSummary _armCommands[] = {
 	{ 0, 0, 0, 0 }
 };
 
-static struct CLIDebuggerCommandAlias _armCommandAliases[] = {
-	{ "b/a", "break/a" },
-	{ "b/t", "break/t" },
-	{ "dis/a", "disassemble/a" },
-	{ "dis/t", "disassemble/t" },
-	{ "disasm/a",  "disassemble/a" },
-	{ "disasm/t",  "disassemble/t" },
-	{ 0, 0 }
-};
+static struct CLIDebuggerCommandAlias _armCommandAliases[] = { { "b/a", "break/a" },
+	                                                           { "b/t", "break/t" },
+	                                                           { "dis/a", "disassemble/a" },
+	                                                           { "dis/t", "disassemble/t" },
+	                                                           { "disasm/a", "disassemble/a" },
+	                                                           { "disasm/t", "disassemble/t" },
+	                                                           { 0, 0 } };
 
 static inline void _printPSR(struct CLIDebuggerBackend* be, union PSR psr) {
-	be->printf(be, "%08X [%c%c%c%c%c%c%c]\n", psr.packed,
-	           psr.n ? 'N' : '-',
-	           psr.z ? 'Z' : '-',
-	           psr.c ? 'C' : '-',
-	           psr.v ? 'V' : '-',
-	           psr.i ? 'I' : '-',
-	           psr.f ? 'F' : '-',
-	           psr.t ? 'T' : '-');
+	be->printf(be, "%08X [%c%c%c%c%c%c%c]\n", psr.packed, psr.n ? 'N' : '-', psr.z ? 'Z' : '-', psr.c ? 'C' : '-',
+	           psr.v ? 'V' : '-', psr.i ? 'I' : '-', psr.f ? 'F' : '-', psr.t ? 'T' : '-');
 }
 
 static void _disassemble(struct CLIDebuggerSystem* debugger, struct CLIDebugVector* dv) {
@@ -107,7 +99,8 @@ static inline uint32_t _printLine(struct CLIDebugger* debugger, uint32_t address
 	if (mode == MODE_ARM) {
 		uint32_t instruction = core->busRead32(core, address & ~(WORD_SIZE_ARM - 1));
 		ARMDecodeARM(instruction, &info);
-		ARMDisassemble(&info, core->cpu, core->symbolTable, address + WORD_SIZE_ARM * 2, disassembly, sizeof(disassembly));
+		ARMDisassemble(&info, core->cpu, core->symbolTable, address + WORD_SIZE_ARM * 2, disassembly,
+		               sizeof(disassembly));
 		be->printf(be, "%08X\t%s\n", instruction, disassembly);
 		return WORD_SIZE_ARM;
 	} else {
@@ -118,32 +111,52 @@ static inline uint32_t _printLine(struct CLIDebugger* debugger, uint32_t address
 		ARMDecodeThumb(instruction, &info);
 		ARMDecodeThumb(instruction2, &info2);
 		if (ARMDecodeThumbCombine(&info, &info2, &combined)) {
-			ARMDisassemble(&combined, core->cpu, core->symbolTable, address + WORD_SIZE_THUMB * 2, disassembly, sizeof(disassembly));
+			ARMDisassemble(&combined, core->cpu, core->symbolTable, address + WORD_SIZE_THUMB * 2, disassembly,
+			               sizeof(disassembly));
 			be->printf(be, "%04X %04X\t%s\n", instruction, instruction2, disassembly);
 			return WORD_SIZE_THUMB * 2;
 		} else {
-			ARMDisassemble(&info, core->cpu, core->symbolTable, address + WORD_SIZE_THUMB * 2, disassembly, sizeof(disassembly));
+			ARMDisassemble(&info, core->cpu, core->symbolTable, address + WORD_SIZE_THUMB * 2, disassembly,
+			               sizeof(disassembly));
 			be->printf(be, "%04X     \t%s\n", instruction, disassembly);
 			return WORD_SIZE_THUMB;
 		}
 	}
 }
 
+uint64_t instruction_count = 0;
+
 static void _printStatus(struct CLIDebuggerSystem* debugger) {
 	struct CLIDebuggerBackend* be = debugger->p->backend;
 	struct ARMCore* cpu = debugger->p->d.p->core->cpu;
 	int r;
-	//for (r = 0; r < 16; r += 1) {
-	//	fprintf(debugger->output_file, "%08x ", cpu->gprs[r]);
-	//}
-	//fprintf(debugger->output_file, "%08x ", cpu->cpsr.packed);
-	fprintf(debugger->output_file, "%"PRIu64"\n", mTimingGlobalTime(debugger->p->d.p->core->timing));
+	struct StatusHistory* status_history = debugger->status_history;
+    instruction_count++;
+	if (status_history->length >= HISTORY_SIZE) {
+		status_history->head += 1;
+		status_history->head %= HISTORY_SIZE;
+		status_history->length--;
+	}
+
+	status_history->tail += 1;
+	status_history->length++;
+	status_history->tail %= HISTORY_SIZE;
+	struct Status *status = &status_history->history[status_history->tail];
+	for (r = 0; r < 16; r += 1) {
+        if (r == 15) {
+            status->registers[r] = cpu->gprs[r] + (cpu->executionMode == MODE_ARM ? 4 : 2);
+        } else {
+            status->registers[r] = cpu->gprs[r];
+        }
+	}
+    status->cpsr = cpu->cpsr.packed;
+    status->cycles = mTimingGlobalTime(debugger->p->d.p->core->timing);
+    status->instruction_count = instruction_count;
+
 	for (r = 0; r < 16; r += 4) {
-		be->printf(be, "%sr%i: %08X  %sr%i: %08X  %sr%i: %08X  %sr%i: %08X\n",
-		    r < 10 ? " " : "", r, cpu->gprs[r],
-		    r < 9 ? " " : "", r + 1, cpu->gprs[r + 1],
-		    r < 8 ? " " : "", r + 2, cpu->gprs[r + 2],
-		    r < 7 ? " " : "", r + 3, cpu->gprs[r + 3]);
+		be->printf(be, "%sr%i: %08X  %sr%i: %08X  %sr%i: %08X  %sr%i: %08X\n", r < 10 ? " " : "", r, cpu->gprs[r],
+		           r < 9 ? " " : "", r + 1, cpu->gprs[r + 1], r < 8 ? " " : "", r + 2, cpu->gprs[r + 2],
+		           r < 7 ? " " : "", r + 3, cpu->gprs[r + 3]);
 	}
 	be->printf(be, "cpsr: ");
 	_printPSR(be, cpu->cpsr);
@@ -185,10 +198,12 @@ static void _setBreakpointThumb(struct CLIDebugger* debugger, struct CLIDebugVec
 }
 
 void ARMCLIDebuggerCreate(struct CLIDebuggerSystem* debugger) {
-    debugger->output_file = fopen("output_file.txt", "w");
+    remove("output_file.txt");
+	debugger->output_file = fopen("output_file.txt", "w");
 	debugger->printStatus = _printStatus;
 	debugger->disassemble = _disassemble;
 	debugger->platformName = "ARM";
 	debugger->platformCommands = _armCommands;
 	debugger->platformCommandAliases = _armCommandAliases;
+	debugger->status_history = (struct StatusHistory*) malloc(sizeof(struct StatusHistory));
 }

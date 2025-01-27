@@ -47,6 +47,21 @@ struct CLIDebuggerCommandAlias {
 	const char* original;
 };
 
+struct Status {
+    uint32_t registers[16];
+    int32_t cpsr;
+    uint64_t cycles;
+    uint64_t instruction_count;
+};
+#define HISTORY_SIZE 100000
+
+struct StatusHistory {
+    uint32_t length;
+    uint32_t head;
+    uint32_t tail;
+    struct Status history[HISTORY_SIZE];
+};
+
 struct CLIDebuggerSystem {
 	struct CLIDebugger* p;
 
@@ -64,6 +79,7 @@ struct CLIDebuggerSystem {
 	struct CLIDebuggerCommandSummary* platformCommands;
 	struct CLIDebuggerCommandAlias* platformCommandAliases;
 	const char* platformName;
+    struct StatusHistory *status_history;
 };
 
 struct CLIDebuggerBackend {
