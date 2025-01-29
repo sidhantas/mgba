@@ -150,7 +150,7 @@ static void _printStatus(struct CLIDebuggerSystem* debugger) {
         }
 	}
     status->cpsr = cpu->cpsr.packed;
-    status->cycles = mTimingGlobalTime(debugger->p->d.p->core->timing);
+    status->cycles = 0;
     status->instruction_count = instruction_count;
 
 	for (r = 0; r < 16; r += 4) {
